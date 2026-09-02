@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""광고 영상 제작형식 분류 — 추론 실행 스크립트."""
+"""Command-line entry point for advertising video production-format classification."""
 from __future__ import annotations
 
 import argparse
@@ -13,15 +13,15 @@ from src.video import read_frames
 
 
 def classify(model, paths: list[str], *, batch_size: int = 2) -> list[dict]:
-    """영상 경로 목록을 분류한다.
+    """Classify a list of video paths.
 
     Args:
-        model: load_pretrained 로 얻은 모델.
-        paths: 영상 파일 경로 목록.
-        batch_size: 한 번에 처리할 영상 수.
+        model: Model returned by load_pretrained.
+        paths: Video file paths.
+        batch_size: Number of videos processed at once.
 
     Returns:
-        경로별 {path, label, confidence, scores} 목록.
+        One dict per path with keys path, label, confidence and scores.
 
     Examples:
         >>> results = classify(model, ["ad.mp4"])
@@ -53,9 +53,9 @@ def classify(model, paths: list[str], *, batch_size: int = 2) -> list[dict]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="광고 영상 제작형식 분류")
-    parser.add_argument("videos", nargs="+", help="영상 파일 경로")
-    parser.add_argument("--weights", default="adapter_model.bin", help="어댑터 가중치 경로")
+    parser = argparse.ArgumentParser(description="Classify advertising videos by production format")
+    parser.add_argument("videos", nargs="+", help="video file paths")
+    parser.add_argument("--weights", default="adapter_model.bin", help="adapter weights path")
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()

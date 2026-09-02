@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-"""광고 영상 제작형식 분류 모델 학습.
+"""Fine-tune the advertising video production-format classifier.
 
-CSV 로 주어진 (영상 경로, 라벨) 목록으로 LoRA 어댑터와 분류 헤드를 학습한다.
+Trains the LoRA adapters and the classification head from a CSV of
+(video path, label) pairs.
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ from src.video import read_frames
 
 
 class VideoDataset(Dataset):
-    """(영상 경로, 클래스) 쌍을 프레임 배치로 변환한다."""
+    """Turn (video path, class) pairs into frame batches."""
 
     def __init__(self, rows: list[tuple[str, int]], *, size: int = 224) -> None:
         self.rows = rows
@@ -48,7 +49,7 @@ def collate(batch: list[dict]) -> dict:
 
 
 def load_rows(path: str) -> list[tuple[str, int]]:
-    """video_path, label 컬럼을 가진 CSV 를 읽는다."""
+    """Read a CSV with video_path and label columns."""
     index = {name: i for i, name in enumerate(CLASSES)}
     rows = []
     for record in csv.DictReader(open(path, encoding="utf-8")):
@@ -59,7 +60,7 @@ def load_rows(path: str) -> list[tuple[str, int]]:
 
 
 def build_scheduler(optimizer, total_steps: int, warmup_steps: int):
-    """Warmup 후 cosine 으로 감쇠하는 스케줄러를 만든다."""
+    """Build a scheduler that warms up and then decays on a cosine curve."""
 
     def factor(step: int) -> float:
         if step < warmup_steps:
@@ -71,8 +72,8 @@ def build_scheduler(optimizer, total_steps: int, warmup_steps: int):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="제작형식 분류 모델 학습")
-    parser.add_argument("--train-csv", required=True, help="video_path, label 컬럼 CSV")
+    parser = argparse.ArgumentParser(description="Fine-tune the production-format classifier")
+    parser.add_argument("--train-csv", required=True, help="CSV with video_path and label columns")
     parser.add_argument("--val-csv", default="")
     parser.add_argument("--output", default="adapter_model.bin")
     parser.add_argument("--epochs", type=int, default=3)
@@ -90,7 +91,7 @@ def main() -> None:
 
     train_rows = load_rows(args.train_csv)
     if not train_rows:
-        raise ValueError(f"학습 데이터가 비어 있다: {args.train_csv}")
+        raise ValueError(f"No training rows found in {args.train_csv}")
     loader = DataLoader(
         VideoDataset(train_rows),
         batch_size=args.batch_size,
@@ -105,7 +106,7 @@ def main() -> None:
     model.model.enable_input_require_grads()
 
     trainable = [p for p in model.parameters() if p.requires_grad]
-    print(f"학습 파라미터 {sum(p.numel() for p in trainable) / 1e6:.1f}M")
+    print(f"trainable parameters: {sum(p.numel() for p in trainable) / 1e6:.1f}M")
 
     optimizer = torch.optim.AdamW(trainable, lr=args.lr, weight_decay=0.01)
     total_steps = args.epochs * len(loader) // args.accumulate
@@ -135,7 +136,7 @@ def main() -> None:
         state = {k: v for k, v in model.state_dict().items()
                  if "lora_" in k or k.startswith(("proj.", "fuse.", "head."))}
         torch.save(state, args.output)
-        print(f"epoch {epoch + 1} 완료 — {args.output} 저장", flush=True)
+        print(f"epoch {epoch + 1} done - saved {args.output}", flush=True)
 
 
 if __name__ == "__main__":

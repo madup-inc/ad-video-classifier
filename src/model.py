@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""광고 영상 제작형식 분류 모델.
+"""Advertising video production-format classifier.
 
-Qwen2.5-VL 백본에 LoRA 어댑터와 분류 헤드를 얹은 구조.
+A Qwen2.5-VL backbone with LoRA adapters and a classification head.
 """
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ LORA_TARGETS = [
     "qkv", "proj", "fc1", "fc2",
 ]
 
+# Fixed at training time - changing this text shifts the input distribution
 PROMPT = (
     "이 광고 영상의 프레임들이다. 영상의 제작 방식(촬영 vs 그래픽 합성)과 "
     "시간에 따른 변화 양상을 분석하라."
@@ -30,7 +31,7 @@ PROMPT = (
 
 
 class VideoFormatClassifier(nn.Module):
-    """영상 프레임을 받아 제작형식 클래스 로짓을 반환한다."""
+    """Take video frames and return production-format class logits."""
 
     def __init__(
         self,
@@ -62,7 +63,7 @@ class VideoFormatClassifier(nn.Module):
         self.head = nn.Linear(dim, num_classes)
 
     def _encode(self, frames: torch.Tensor, device: torch.device) -> dict[str, torch.Tensor]:
-        """프레임 배치를 Qwen2.5-VL 비디오 입력으로 변환한다."""
+        """Convert a batch of frames into Qwen2.5-VL video inputs."""
         videos = [[f.numpy() for f in clip] for clip in frames.cpu()]
         message = [{"role": "user", "content": [{"type": "video"}, {"type": "text", "text": PROMPT}]}]
         text = self.processor.apply_chat_template(message, tokenize=False, add_generation_prompt=True)
@@ -81,11 +82,11 @@ class VideoFormatClassifier(nn.Module):
     def forward(self, frames: torch.Tensor, frame_gap: torch.Tensor | None = None) -> torch.Tensor:
         """
         Args:
-            frames: (B, T, H, W, 3) uint8 프레임 배치.
-            frame_gap: (B,) 프레임 간 실제 간격(초). 시간축 위치 인코딩에 사용된다.
+            frames: Batch of uint8 frames shaped (B, T, H, W, 3).
+            frame_gap: Measured inter-frame interval in seconds, shaped (B,).
 
         Returns:
-            (B, num_classes) 로짓.
+            Logits shaped (B, num_classes).
         """
         device = next(self.head.parameters()).device
         encoded = self._encode(frames, device)
@@ -105,14 +106,14 @@ class VideoFormatClassifier(nn.Module):
         return self.head(self.fuse(feature))
 
     def predict_proba(self, frames: torch.Tensor, frame_gap: torch.Tensor | None = None) -> torch.Tensor:
-        """CLASSES 순서의 클래스 확률을 반환한다.
+        """Return class probabilities in CLASSES order.
 
         Args:
-            frames: (B, T, H, W, 3) uint8 프레임 배치.
-            frame_gap: (B,) 프레임 간 실제 간격(초).
+            frames: Batch of uint8 frames shaped (B, T, H, W, 3).
+            frame_gap: Measured inter-frame interval in seconds, shaped (B,).
 
         Returns:
-            (B, 3) 확률. 합이 1이 되도록 정규화된다.
+            Probabilities shaped (B, 3), normalised to sum to one.
 
         Examples:
             >>> probs = model.predict_proba(frames, gaps)
@@ -128,7 +129,13 @@ class VideoFormatClassifier(nn.Module):
 
 
 def load_pretrained(weights_path: str, **kwargs) -> VideoFormatClassifier:
-    """공개된 어댑터 가중치를 로드한다.
+    """Load the released adapter weights.
+
+    Args:
+        weights_path: Path to the downloaded adapter checkpoint.
+
+    Returns:
+        A model with the released weights applied.
 
     Examples:
         >>> model = load_pretrained("adapter_model.bin")
@@ -147,5 +154,5 @@ def load_pretrained(weights_path: str, **kwargs) -> VideoFormatClassifier:
     missing, unexpected = model.load_state_dict(remapped, strict=False)
     trained = [k for k in missing if "lora_" in k or k.startswith(("proj.", "fuse.", "head."))]
     if trained:
-        raise RuntimeError(f"학습된 가중치 {len(trained)}개가 로드되지 않았다: {trained[:5]}")
+        raise RuntimeError(f"{len(trained)} trained tensors failed to load: {trained[:5]}")
     return model

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""영상에서 모델 입력 프레임을 추출한다."""
+"""Extract model input frames from a video file."""
 from __future__ import annotations
 
 import cv2
@@ -18,18 +18,20 @@ def read_frames(
     n_burst: int = N_BURST,
     size: int = SIZE,
 ) -> tuple[np.ndarray, float]:
-    """영상에서 프레임과 프레임 간 평균 간격(초)을 얻는다.
+    """Read frames and the median inter-frame interval from a video.
 
-    n_anchor 개 지점에서 각각 n_burst 개의 연속 프레임을 뽑는다.
+    Samples n_burst consecutive frames at each of n_anchor points spread evenly
+    across the video.
 
     Args:
-        path: 영상 파일 경로.
-        n_anchor: 영상 전체에 균등 배치할 지점 수.
-        n_burst: 각 지점에서 뽑을 연속 프레임 수.
-        size: 정사각 리사이즈 크기.
+        path: Path to the video file.
+        n_anchor: Number of points spread evenly across the video.
+        n_burst: Number of consecutive frames taken at each point.
+        size: Square resize dimension.
 
     Returns:
-        (프레임 배열 (T, size, size, 3) uint8, 프레임 간 평균 간격 초).
+        A tuple of uint8 frames shaped (T, size, size, 3) and the median
+        inter-frame interval in seconds.
 
     Examples:
         >>> frames, gap = read_frames("ad.mp4")
@@ -43,7 +45,7 @@ def read_frames(
     total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
     if total < 1:
         capture.release()
-        raise ValueError(f"프레임을 읽을 수 없다: {path}")
+        raise ValueError(f"Cannot read frames from {path}")
 
     step = max(1, round(fps / BURST_FPS))
     wanted: list[int] = []
@@ -62,7 +64,7 @@ def read_frames(
         index += 1
     capture.release()
     if not grabbed:
-        raise ValueError(f"디코딩된 프레임이 없다: {path}")
+        raise ValueError(f"No frames decoded from {path}")
 
     frames = []
     for i in wanted:

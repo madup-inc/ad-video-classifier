@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""단일 영상 분류 예시."""
+"""Classify a single video."""
 import sys
 
 import torch
